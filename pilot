@@ -1,0 +1,412 @@
+import React, { useMemo, useState } from 'react';
+import { CalendarDays, Clock3, Users, Plus, Trash2, CheckCircle2, AlertCircle, UtensilsCrossed } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+
+const initialStaff = [
+  { id: 1, name: 'Vivian', role: 'General Manager', status: 'Available' },
+  { id: 2, name: 'Nevada', role: 'Operations & Training Supervisor', status: 'Available' },
+  { id: 3, name: 'Jenna', role: 'HR & Admin', status: 'Available' },
+  { id: 4, name: 'Front Counter 1', role: 'Front of House', status: 'Available' },
+  { id: 5, name: 'Kitchen Line 1', role: 'Kitchen', status: 'Available' },
+  { id: 6, name: 'Pizza Room 1', role: 'Pizza Room', status: 'Available' },
+];
+
+const initialShifts = [
+  {
+    id: 1,
+    day: 'Monday',
+    staff: 'Nevada',
+    role: 'Operations & Training Supervisor',
+    start: '08:00',
+    end: '16:00',
+    station: 'Service Floor',
+    notes: 'Open kitchen, supervise lunch prep and handoff.'
+  },
+  {
+    id: 2,
+    day: 'Monday',
+    staff: 'Kitchen Line 1',
+    role: 'Kitchen',
+    start: '09:00',
+    end: '17:00',
+    station: 'Short Line',
+    notes: 'Lunch prep, fryer, poutine station.'
+  },
+  {
+    id: 3,
+    day: 'Monday',
+    staff: 'Pizza Room 1',
+    role: 'Pizza Room',
+    start: '10:00',
+    end: '18:00',
+    station: 'Pizza Room',
+    notes: 'Bannock pizza production only.'
+  },
+  {
+    id: 4,
+    day: 'Tuesday',
+    staff: 'Vivian',
+    role: 'General Manager',
+    start: '09:00',
+    end: '17:00',
+    station: 'Management',
+    notes: 'Vendor calls, daily oversight, escalation support.'
+  },
+];
+
+const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+const stations = ['Front Counter', 'Short Line', 'Pizza Room', 'Expo', 'Delivery', 'Management', 'Catering'];
+const roles = ['General Manager', 'Operations & Training Supervisor', 'HR & Admin', 'Front of House', 'Kitchen', 'Pizza Room', 'Catering Assistant', 'Shift Supervisor'];
+
+function getHours(start, end) {
+  const [sh, sm] = start.split(':').map(Number);
+  const [eh, em] = end.split(':').map(Number);
+  const startMinutes = sh * 60 + sm;
+  const endMinutes = eh * 60 + em;
+  const diff = Math.max(0, endMinutes - startMinutes);
+  return (diff / 60).toFixed(1);
+}
+
+export default function ShellysShiftApp() {
+  const [staff, setStaff] = useState(initialStaff);
+  const [shifts, setShifts] = useState(initialShifts);
+  const [requests, setRequests] = useState([
+    { id: 1, name: 'Front Counter 1', type: 'Time Off', details: 'Needs Friday evening off', status: 'Pending' },
+    { id: 2, name: 'Kitchen Line 1', type: 'Shift Swap', details: 'Swap Wednesday with Saturday', status: 'Pending' },
+  ]);
+
+  const [newStaff, setNewStaff] = useState({ name: '', role: '', status: 'Available' });
+  const [newShift, setNewShift] = useState({ day: 'Monday', staff: '', role: '', start: '09:00', end: '17:00', station: 'Front Counter', notes: '' });
+  const [announcement, setAnnouncement] = useState('');
+  const [announcements, setAnnouncements] = useState([
+    'Reminder: Bannock pizza orders go only to the Pizza Room.',
+    'All lunch rush staff should clock in 15 minutes early for lineup briefing.'
+  ]);
+
+  const weeklyHours = useMemo(() => {
+    const summary = {};
+    shifts.forEach((shift) => {
+      const hrs = parseFloat(getHours(shift.start, shift.end));
+      summary[shift.staff] = (summary[shift.staff] || 0) + hrs;
+    });
+    return summary;
+  }, [shifts]);
+
+  const openShifts = useMemo(() => shifts.filter((s) => !s.staff || s.staff.trim() === ''), [shifts]);
+
+  const addStaff = () => {
+    if (!newStaff.name || !newStaff.role) return;
+    setStaff((prev) => [...prev, { id: Date.now(), ...newStaff }]);
+    setNewStaff({ name: '', role: '', status: 'Available' });
+  };
+
+  const addShift = () => {
+    if (!newShift.staff || !newShift.role || !newShift.day) return;
+    setShifts((prev) => [...prev, { id: Date.now(), ...newShift }]);
+    setNewShift({ day: 'Monday', staff: '', role: '', start: '09:00', end: '17:00', station: 'Front Counter', notes: '' });
+  };
+
+  const deleteShift = (id) => setShifts((prev) => prev.filter((shift) => shift.id !== id));
+
+  const updateRequestStatus = (id, status) => {
+    setRequests((prev) => prev.map((req) => (req.id === id ? { ...req, status } : req)));
+  };
+
+  const postAnnouncement = () => {
+    if (!announcement.trim()) return;
+    setAnnouncements((prev) => [announcement, ...prev]);
+    setAnnouncement('');
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-50 p-4 md:p-8">
+      <div className="mx-auto max-w-7xl space-y-6">
+        <div className="rounded-3xl bg-white p-6 shadow-sm border">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div>
+              <div className="flex items-center gap-3">
+                <div className="rounded-2xl bg-slate-100 p-3">
+                  <UtensilsCrossed className="h-6 w-6" />
+                </div>
+                <div>
+                  <h1 className="text-3xl font-bold tracking-tight">Shelly&apos;s Bistro Shift App</h1>
+                  <p className="text-sm text-slate-600">Simple staff scheduling, shift tracking, requests, and announcements.</p>
+                </div>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+              <Card className="rounded-2xl shadow-sm">
+                <CardContent className="p-4">
+                  <div className="text-xs text-slate-500">Staff</div>
+                  <div className="text-2xl font-semibold">{staff.length}</div>
+                </CardContent>
+              </Card>
+              <Card className="rounded-2xl shadow-sm">
+                <CardContent className="p-4">
+                  <div className="text-xs text-slate-500">Scheduled Shifts</div>
+                  <div className="text-2xl font-semibold">{shifts.length}</div>
+                </CardContent>
+              </Card>
+              <Card className="rounded-2xl shadow-sm">
+                <CardContent className="p-4">
+                  <div className="text-xs text-slate-500">Pending Requests</div>
+                  <div className="text-2xl font-semibold">{requests.filter((r) => r.status === 'Pending').length}</div>
+                </CardContent>
+              </Card>
+              <Card className="rounded-2xl shadow-sm">
+                <CardContent className="p-4">
+                  <div className="text-xs text-slate-500">Open Shifts</div>
+                  <div className="text-2xl font-semibold">{openShifts.length}</div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </div>
+
+        <Tabs defaultValue="schedule" className="space-y-4">
+          <TabsList className="grid w-full grid-cols-5 rounded-2xl">
+            <TabsTrigger value="schedule">Schedule</TabsTrigger>
+            <TabsTrigger value="staff">Staff</TabsTrigger>
+            <TabsTrigger value="requests">Requests</TabsTrigger>
+            <TabsTrigger value="announcements">Announcements</TabsTrigger>
+            <TabsTrigger value="reports">Reports</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="schedule" className="space-y-4">
+            <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
+              <Card className="rounded-3xl shadow-sm">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2"><CalendarDays className="h-5 w-5" /> Weekly Shift Board</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {days.map((day) => {
+                    const dayShifts = shifts.filter((shift) => shift.day === day);
+                    return (
+                      <div key={day} className="rounded-2xl border p-4">
+                        <div className="mb-3 flex items-center justify-between">
+                          <h3 className="font-semibold">{day}</h3>
+                          <Badge variant="secondary">{dayShifts.length} shifts</Badge>
+                        </div>
+                        <div className="space-y-3">
+                          {dayShifts.length > 0 ? dayShifts.map((shift) => (
+                            <div key={shift.id} className="flex flex-col gap-3 rounded-2xl bg-slate-50 p-4 md:flex-row md:items-start md:justify-between">
+                              <div className="space-y-1">
+                                <div className="font-medium">{shift.staff}</div>
+                                <div className="text-sm text-slate-600">{shift.role} • {shift.station}</div>
+                                <div className="text-sm text-slate-500">{shift.start} - {shift.end} ({getHours(shift.start, shift.end)} hrs)</div>
+                                {shift.notes && <div className="text-sm text-slate-500">{shift.notes}</div>}
+                              </div>
+                              <Button variant="outline" size="sm" className="rounded-xl" onClick={() => deleteShift(shift.id)}>
+                                <Trash2 className="mr-2 h-4 w-4" /> Remove
+                              </Button>
+                            </div>
+                          )) : (
+                            <div className="text-sm text-slate-500">No shifts assigned.</div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </CardContent>
+              </Card>
+
+              <Card className="rounded-3xl shadow-sm">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2"><Plus className="h-5 w-5" /> Add Shift</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Day</Label>
+                    <Select value={newShift.day} onValueChange={(value) => setNewShift((prev) => ({ ...prev, day: value }))}>
+                      <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {days.map((day) => <SelectItem key={day} value={day}>{day}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Staff Name</Label>
+                    <Input value={newShift.staff} onChange={(e) => setNewShift((prev) => ({ ...prev, staff: e.target.value }))} placeholder="Enter staff name" className="rounded-xl" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Role</Label>
+                    <Select value={newShift.role} onValueChange={(value) => setNewShift((prev) => ({ ...prev, role: value }))}>
+                      <SelectTrigger className="rounded-xl"><SelectValue placeholder="Select role" /></SelectTrigger>
+                      <SelectContent>
+                        {roles.map((role) => <SelectItem key={role} value={role}>{role}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Start</Label>
+                      <Input type="time" value={newShift.start} onChange={(e) => setNewShift((prev) => ({ ...prev, start: e.target.value }))} className="rounded-xl" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>End</Label>
+                      <Input type="time" value={newShift.end} onChange={(e) => setNewShift((prev) => ({ ...prev, end: e.target.value }))} className="rounded-xl" />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Station</Label>
+                    <Select value={newShift.station} onValueChange={(value) => setNewShift((prev) => ({ ...prev, station: value }))}>
+                      <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {stations.map((station) => <SelectItem key={station} value={station}>{station}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Notes</Label>
+                    <Textarea value={newShift.notes} onChange={(e) => setNewShift((prev) => ({ ...prev, notes: e.target.value }))} placeholder="Special duties, prep notes, handoff notes..." className="rounded-xl" />
+                  </div>
+                  <Button onClick={addShift} className="w-full rounded-xl">Create Shift</Button>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="staff" className="space-y-4">
+            <div className="grid gap-4 lg:grid-cols-[1fr_0.8fr]">
+              <Card className="rounded-3xl shadow-sm">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2"><Users className="h-5 w-5" /> Staff Directory</CardTitle>
+                </CardHeader>
+                <CardContent className="grid gap-4 md:grid-cols-2">
+                  {staff.map((member) => (
+                    <div key={member.id} className="rounded-2xl border p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <div className="font-semibold">{member.name}</div>
+                          <div className="text-sm text-slate-600">{member.role}</div>
+                        </div>
+                        <Badge>{member.status}</Badge>
+                      </div>
+                      <div className="mt-3 text-sm text-slate-500">
+                        Weekly hours: {weeklyHours[member.name] || 0}
+                      </div>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+
+              <Card className="rounded-3xl shadow-sm">
+                <CardHeader>
+                  <CardTitle>Add Staff</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Name</Label>
+                    <Input value={newStaff.name} onChange={(e) => setNewStaff((prev) => ({ ...prev, name: e.target.value }))} placeholder="Staff name" className="rounded-xl" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Role</Label>
+                    <Select value={newStaff.role} onValueChange={(value) => setNewStaff((prev) => ({ ...prev, role: value }))}>
+                      <SelectTrigger className="rounded-xl"><SelectValue placeholder="Select role" /></SelectTrigger>
+                      <SelectContent>
+                        {roles.map((role) => <SelectItem key={role} value={role}>{role}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Status</Label>
+                    <Select value={newStaff.status} onValueChange={(value) => setNewStaff((prev) => ({ ...prev, status: value }))}>
+                      <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Available">Available</SelectItem>
+                        <SelectItem value="Off">Off</SelectItem>
+                        <SelectItem value="Vacation">Vacation</SelectItem>
+                        <SelectItem value="Sick">Sick</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Button onClick={addStaff} className="w-full rounded-xl">Add Team Member</Button>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="requests" className="space-y-4">
+            <Card className="rounded-3xl shadow-sm">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2"><Clock3 className="h-5 w-5" /> Shift Requests</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {requests.map((request) => (
+                  <div key={request.id} className="flex flex-col gap-4 rounded-2xl border p-4 md:flex-row md:items-center md:justify-between">
+                    <div>
+                      <div className="font-medium">{request.name}</div>
+                      <div className="text-sm text-slate-600">{request.type}</div>
+                      <div className="text-sm text-slate-500">{request.details}</div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge variant={request.status === 'Approved' ? 'default' : request.status === 'Declined' ? 'destructive' : 'secondary'}>
+                        {request.status}
+                      </Badge>
+                      <Button variant="outline" size="sm" className="rounded-xl" onClick={() => updateRequestStatus(request.id, 'Approved')}>
+                        <CheckCircle2 className="mr-2 h-4 w-4" /> Approve
+                      </Button>
+                      <Button variant="outline" size="sm" className="rounded-xl" onClick={() => updateRequestStatus(request.id, 'Declined')}>
+                        <AlertCircle className="mr-2 h-4 w-4" /> Decline
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="announcements" className="space-y-4">
+            <div className="grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
+              <Card className="rounded-3xl shadow-sm">
+                <CardHeader>
+                  <CardTitle>Post Announcement</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <Textarea value={announcement} onChange={(e) => setAnnouncement(e.target.value)} placeholder="Post a staff update, rush note, meeting reminder, or catering instruction..." className="min-h-[180px] rounded-xl" />
+                  <Button onClick={postAnnouncement} className="w-full rounded-xl">Post Update</Button>
+                </CardContent>
+              </Card>
+              <Card className="rounded-3xl shadow-sm">
+                <CardHeader>
+                  <CardTitle>Team Feed</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {announcements.map((item, idx) => (
+                    <div key={idx} className="rounded-2xl bg-slate-50 p-4 text-sm text-slate-700">{item}</div>
+                  ))}
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="reports" className="space-y-4">
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {Object.entries(weeklyHours).map(([name, hours]) => (
+                <Card key={name} className="rounded-3xl shadow-sm">
+                  <CardContent className="p-5">
+                    <div className="text-lg font-semibold">{name}</div>
+                    <div className="text-sm text-slate-500">Total weekly hours</div>
+                    <div className="mt-3 text-3xl font-bold">{hours}</div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </TabsContent>
+        </Tabs>
+
+        <div className="rounded-3xl border bg-white p-5 text-sm text-slate-600 shadow-sm">
+          Built as a working prototype for Shelly&apos;s Bistro. It can be expanded with clock-in/clock-out, payroll export, role permissions, and mobile staff login.
+        </div>
+      </div>
+    </div>
+  );
+}
